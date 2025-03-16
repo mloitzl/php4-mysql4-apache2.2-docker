@@ -1,0 +1,44 @@
+FROM arm64v8/alpine as build
+RUN apk add --no-cache build-base ncurses-dev zlib-dev wget flex perl libc6-compat imap-dev apr-util apache2-dev openssl-dev libpng-dev
+
+WORKDIR /tmp
+
+# Build Mysql 4
+ADD mysql-4.1.22.tar.bz2 .
+
+RUN echo '/* Linuxthreads */' >> /usr/include/pthread.h
+WORKDIR /tmp/mysql-4.1.22
+ADD config.guess .
+ADD config.sub .
+ENV CFLAGS="-std=gnu89"
+RUN ./configure --prefix=/usr/local/mysql --build=aarch64-unknown-linux-gnu CXXFLAGS="-std=gnu++98 -fpermissive"
+RUN sed -i "/HAVE_GETHOSTBYADDR_R/d" config.h
+RUN sed -i "/HAVE_GETHOSTBYNAME_R/d" config.h
+RUN make && make install
+
+FROM arm64v8/alpine
+
+RUN apk add --no-cache libstdc++ imap-dev apr-util bash shadow libpng emacs-with-editor file
+RUN chsh -s /bin/bash
+
+# Setup Mysql to Run
+ADD my.cnf /usr/local/mysql/my.cnf
+# RUN addgroup -S mysql && adduser -S mysql -G mysql \
+#     && mkdir /usr/local/mysql/var \
+#     && chown -R root /usr/local/mysql && chown -R mysql /usr/local/mysql/var && chgrp -R mysql /usr/local/mysql
+
+RUN mkdir /usr/local/mysql/var
+RUN addgroup -S mysql && adduser -S mysql -G mysql
+RUN chown -R root /usr/local/mysql
+RUN chown -R mysql:mysql /usr/local/mysql/var
+RUN chmod -R 755 /usr/local/mysql/var
+RUN chgrp -R mysql /usr/local/mysql
+
+COPY --from=build /usr/local/mysql /usr/local/mysql
+
+ENV PATH="${PATH}:/usr/local/mysql/bin/"
+
+VOLUME /usr/local/mysql/var
+RUN chown -R mysql:mysql -R /usr/local/mysql/var/ 
+RUN /usr/local/mysql/bin/mysql_install_db --user=mysql --datadir=/usr/local/mysql/var
+CMD ["mysqld_safe", "--defaults-file=/usr/local/mysql/my.cnf"]
