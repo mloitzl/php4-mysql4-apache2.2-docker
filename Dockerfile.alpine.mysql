@@ -1,4 +1,4 @@
-FROM arm64v8/alpine AS build
+FROM alpine AS build
 RUN apk add --no-cache build-base ncurses-dev zlib-dev flex perl libc6-compat
 
 WORKDIR /tmp
@@ -16,7 +16,7 @@ RUN sed -i "/HAVE_GETHOSTBYADDR_R/d" config.h
 RUN sed -i "/HAVE_GETHOSTBYNAME_R/d" config.h
 RUN make && make install
 
-FROM arm64v8/alpine
+FROM alpine
 
 RUN apk add --no-cache libstdc++ imap-dev apr-util shadow libpng ncurses
 
@@ -36,4 +36,8 @@ ENV PATH="${PATH}:/usr/local/mysql/bin/"
 VOLUME /usr/local/mysql/var
 RUN chown -R mysql:mysql -R /usr/local/mysql/var/ \
     && /usr/local/mysql/bin/mysql_install_db --user=mysql --datadir=/usr/local/mysql/var
-CMD ["mysqld_safe", "--defaults-file=/usr/local/mysql/my.cnf"]
+
+ADD mysql-entrypoint.sh /mysql-entrypoint.sh
+RUN chmod +x /mysql-entrypoint.sh
+
+CMD ["/bin/ash", "/mysql-entrypoint.sh"]
