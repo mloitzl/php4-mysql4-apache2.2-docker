@@ -49,3 +49,16 @@ The only diffrence that I can see is that the build proccess of the alpine versi
 ## Motivation
 
 Run my first ever production webapp written in 2003 on a RockPi4 (Raspbarry 4 alternative) and let it running in production for a few for years :-)
+
+
+## Multi target platform build
+
+```sh
+docker buildx inspect --bootstrap
+docker buildx use ...
+
+```
+```sh
+docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.alpine.mysql -t mloitzl/mysql:4.1.22 . --push
+docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.alpine.php4 -t mloitzl/php:4.4.9 . --push
+```
