@@ -1,8 +1,8 @@
 FROM alpine AS base-amd64
 FROM arm64v8/alpine AS base-arm64
 
+# there is a high probability that this is not necessary.  I am not sure if the base image is the same for both architectures
 FROM base-${TARGETARCH} AS builder
-# FROM alpine AS build
 
 RUN apk add --no-cache build-base ncurses-dev zlib-dev wget flex perl libc6-compat imap-dev apr-util apache2-dev openssl-dev libpng-dev
 
@@ -50,21 +50,6 @@ WORKDIR /tmp
 RUN echo 'AddType application/x-httpd-php php' >> /usr/local/apache2/conf/httpd.conf \
   && sed -i 's/DirectoryIndex index.html/DirectoryIndex index.php index.html/' /usr/local/apache2/conf/httpd.conf
 
-# # Build Mysql 4
-# ADD mysql-4.1.22.tar.bz2 .
-
-# RUN echo '/* Linuxthreads */' >> /usr/include/pthread.h
-# WORKDIR /tmp/mysql-4.1.22
-# RUN ./configure --prefix=/usr/local/mysql --build=aarch64-unknown-linux-gnu CXXFLAGS="-std=gnu++98 -fpermissive"
-# RUN sed -i "/HAVE_GETHOSTBYADDR_R/d" config.h
-# RUN sed -i "/HAVE_GETHOSTBYNAME_R/d" config.h
-# RUN make && make install
-
-WORKDIR /tmp
-
-# Linuxtrheads hack explained: https://bugs.mysql.com/bug.php?id=19785
-# gnu++98 (error: narrowing conversion):  https://bugs.mysql.com/bug.php?id=19785
-# libc6-compat solves the problem of missing libm.so on aarch64
 
 FROM alpine AS final-amd64
 FROM arm64v8/alpine AS final-arm64
@@ -74,30 +59,12 @@ FROM final-${TARGETARCH} AS final
 ARG TARGETARCH
 
 RUN echo "final: $TARGETARCH"
-# FROM alpine
-
-# RUN apk add --no-cache libstdc++ imap-dev apr-util bash shadow libpng
 RUN apk add --no-cache libstdc++ imap-dev apr-util shadow libpng
-# RUN chsh -s /bin/bash
-
-# Setup Mysql to Run
-# ADD my.cnf /usr/local/mysql/my.cnf
-# RUN addgroup -S mysql && adduser -S mysql -G mysql \
-#   && mkdir /usr/local/mysql/var \
-#   && chown -R root /usr/local/mysql && chown -R mysql /usr/local/mysql/var && chgrp -R mysql /usr/local/mysql
 
 COPY --from=builder /usr/local/apache2 /usr/local/apache2
-# COPY --from=builder /usr/local/mysql /usr/local/mysql
 COPY --from=builder /usr/local/lib/php /usr/local/lib/php
-# COPY --from=builder /usr/local/expat /usr/local/expat
-# COPY --from=builder /usr/local/pcre /usr/local/pcre
 
 ENV PATH="${PATH}:/usr/local/apache2/bin/"
 
-# RUN echo "ServerName hem" >> /usr/local/apache2/conf/httpd.conf
-# VOLUME /usr/local/mysql/var /usr/local/apache2/htdocs/
-VOLUME /usr/local/apache2/htdocs/
 CMD apachectl start \
   && chown daemon -R /usr/local/apache2/htdocs/
-#\
-# && mysqld_safe --defaults-file=/usr/local/mysql/my.cnf 
